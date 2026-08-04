@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import threading
 from pathlib import Path
 from typing import Callable, Optional
 
@@ -52,7 +51,6 @@ class TrayApp:
         self._get_paused = get_paused
 
         self._icon: Optional[pystray.Icon] = None
-        self._thread: Optional[threading.Thread] = None
 
     def run(self) -> None:
         """Run the tray icon (blocks until quit)."""
@@ -62,10 +60,9 @@ class TrayApp:
             title="Glimpse - Semantic Search",
             menu=self._build_menu(),
         )
-        # Run in a thread so we can control it
-        self._thread = threading.Thread(target=self._icon.run, daemon=True)
-        self._thread.start()
+        # Run on the main thread (blocks until quit)
         log.info("Tray icon started")
+        self._icon.run()
 
     def _build_menu(self) -> pystray.Menu:
         def make_max_effort_item():
@@ -102,7 +99,4 @@ class TrayApp:
         if self._icon:
             self._icon.stop()
             self._icon = None
-        if self._thread:
-            self._thread.join(timeout=2.0)
-            self._thread = None
         log.info("Tray icon stopped")
