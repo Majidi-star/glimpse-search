@@ -11,10 +11,11 @@ dist/
 # uv
 uv.lock
 
-# Editors
+# Editors / harness
 .vscode/
 .idea/
 *.swp
+.zcode/
 
 # App data generated at runtime (local dev)
 data/
