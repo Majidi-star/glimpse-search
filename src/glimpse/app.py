@@ -27,6 +27,7 @@ from glimpse.config import (
     Paths,
     RuntimeFlags,
     suggest_profile,
+    HardwareProfile,
 )
 from glimpse.db import init_db, connect
 from glimpse.embedder import get_embedder
