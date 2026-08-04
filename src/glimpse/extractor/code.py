@@ -15,12 +15,11 @@ from pathlib import Path
 from typing import NamedTuple
 
 from glimpse.extractor.base import (
-    Chunk,
-    ExtractionResult,
-    Extractor,
     GIST_MAX_CHARS,
     SNIPPET_MAX_CHARS,
     TEXT_CHUNK_CAP,
+    Chunk,
+    ExtractionResult,
     merge_chunks_hierarchical,
     register,
     truncate,
@@ -33,6 +32,7 @@ log = logging.getLogger(__name__)
 # Language patterns: (start_re, end_re) for function/class definitions
 # We use simple regex heuristics (no tree-sitter) for v0.1.
 # ---------------------------------------------------------------------------
+
 
 class LangPattern(NamedTuple):
     name: str
@@ -147,7 +147,10 @@ class CodeExtractor:
             # Position meta: line number of header
             line_no = content[:start].count("\n") + 1
             import json
-            position_meta = json.dumps({"language": lang.name, "line": line_no, "header": header.strip()[:80]})
+
+            position_meta = json.dumps(
+                {"language": lang.name, "line": line_no, "header": header.strip()[:80]}
+            )
 
             chunks.append(Chunk(chunk_type="text", snippet=snippet, position_meta=position_meta))
 
@@ -156,7 +159,7 @@ class CodeExtractor:
             chunks = merge_chunks_hierarchical(chunks, TEXT_CHUNK_CAP)
 
         # Gist: first substantial function/class header + body preview
-        gist_text = content[:GIST_MAX_CHARS * 3]  # read a bit more for context
+        gist_text = content[: GIST_MAX_CHARS * 3]  # read a bit more for context
         gist = truncate(gist_text, GIST_MAX_CHARS)
 
         return ExtractionResult(gist=gist, chunks=chunks)
@@ -166,11 +169,12 @@ class CodeExtractor:
         chunks: list[Chunk] = []
         chunk_size = 1000  # chars
         for i in range(0, len(content), chunk_size):
-            piece = content[i:i + chunk_size]
+            piece = content[i : i + chunk_size]
             if not piece.strip():
                 continue
             snippet = truncate(piece, SNIPPET_MAX_CHARS)
             import json
+
             position_meta = json.dumps({"language": lang_name, "offset": i})
             chunks.append(Chunk(chunk_type="text", snippet=snippet, position_meta=position_meta))
             if len(chunks) >= TEXT_CHUNK_CAP:

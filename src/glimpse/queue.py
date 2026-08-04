@@ -15,9 +15,9 @@ import logging
 import queue
 import threading
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Callable, Optional
 
 from glimpse.governor import GovernorMode, ResourceGovernor
 
@@ -25,9 +25,9 @@ log = logging.getLogger(__name__)
 
 
 class JobPriority(Enum):
-    LOW = 0      # initial scan of new location
-    NORMAL = 1   # new file created
-    HIGH = 2     # modified file (rescan)
+    LOW = 0  # initial scan of new location
+    NORMAL = 1  # new file created
+    HIGH = 2  # modified file (rescan)
 
 
 @dataclass(slots=True, order=True)
@@ -36,6 +36,7 @@ class IndexJob:
 
     sort_index ensures priority queue orders by (priority desc, time asc).
     """
+
     sort_index: tuple[int, float] = field(init=False, compare=True)
     file_id: int = field(compare=False)
     path: str = field(compare=False)
@@ -93,7 +94,7 @@ class JobQueue:
             log.debug("Enqueued job: file_id=%d path=%s priority=%s", file_id, path, priority.name)
             return True
 
-    def dequeue(self, timeout: float | None = None) -> Optional[IndexJob]:
+    def dequeue(self, timeout: float | None = None) -> IndexJob | None:
         """Get the next job respecting the governor.
 
         Blocks until a job is available and governor allows it, or shutdown.

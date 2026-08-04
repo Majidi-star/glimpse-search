@@ -3,13 +3,12 @@
 from __future__ import annotations
 
 import logging
-from pathlib import Path
-from typing import Callable, Optional
+import threading
+import time
+from collections.abc import Callable
 
 import pystray
 from PIL import Image, ImageDraw
-
-from glimpse.governor import GovernorMode
 
 log = logging.getLogger(__name__)
 
@@ -50,19 +49,39 @@ class TrayApp:
         self._get_max_effort = get_max_effort
         self._get_paused = get_paused
 
-        self._icon: Optional[pystray.Icon] = None
+        self._icon: pystray.Icon | None = None
+        self._thread: threading.Thread | None = None
 
     def run(self) -> None:
-        """Run the tray icon (blocks until quit)."""
+        """Run the tray icon on the MAIN thread (legacy - for compatibility)."""
         self._icon = pystray.Icon(
             "Glimpse",
             icon=_create_tray_icon(),
             title="Glimpse - Semantic Search",
             menu=self._build_menu(),
         )
-        # Run on the main thread (blocks until quit)
-        log.info("Tray icon started")
+        # Run on the main thread (blocks)
+        log.info("Tray icon started (main thread)")
         self._icon.run()
+
+    def start_in_background(self) -> None:
+        """Start the tray icon on a daemon thread (non-blocking)."""
+        if self._icon is not None:
+            return
+        self._icon = pystray.Icon(
+            "Glimpse",
+            icon=_create_tray_icon(),
+            title="Glimpse - Semantic Search",
+            menu=self._build_menu(),
+        )
+        self._thread = threading.Thread(target=self._icon.run, daemon=True, name="tray-icon")
+        self._thread.start()
+        # Wait briefly for icon to become visible
+        for _ in range(50):
+            if getattr(self._icon, "visible", False):
+                break
+            time.sleep(0.05)
+        log.info("Tray icon started (background thread)")
 
     def _build_menu(self) -> pystray.Menu:
         def make_max_effort_item():
@@ -99,4 +118,7 @@ class TrayApp:
         if self._icon:
             self._icon.stop()
             self._icon = None
+        if self._thread:
+            self._thread.join(timeout=2.0)
+            self._thread = None
         log.info("Tray icon stopped")

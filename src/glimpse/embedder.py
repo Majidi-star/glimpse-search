@@ -123,6 +123,7 @@ class HashingEmbedder(Embedder):
 # SentenceTransformers embedder (real semantic embeddings)
 # ---------------------------------------------------------------------------
 
+
 class _SentenceTransformersEmbedder(Embedder):
     """Wraps sentence-transformers BAAI/bge-small-en-v1.5.
 
@@ -160,6 +161,7 @@ class _SentenceTransformersEmbedder(Embedder):
             try:
                 log.info("Loading embedding model (BAAI/bge-small-en-v1.5)...")
                 from sentence_transformers import SentenceTransformer
+
                 self._model = SentenceTransformer("BAAI/bge-small-en-v1.5", device="cpu")
                 self._model.eval()
                 self._ready = True
@@ -224,6 +226,7 @@ def get_embedder(flags: RuntimeFlags | None = None) -> Embedder:
             # Check if sentence-transformers is available
             try:
                 import sentence_transformers  # noqa: F401
+
                 use_real_model = True
             except ImportError:
                 log.info("sentence-transformers not installed; using hashing embedder")

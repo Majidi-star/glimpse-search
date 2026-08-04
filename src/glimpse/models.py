@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal
-
 from pydantic import BaseModel, Field
 
 
@@ -101,9 +99,11 @@ def get_file_type_statuses(enabled_map: dict[str, bool]) -> list[FileTypeStatus]
     """Build file type status list for API."""
     result = []
     for cat in sorted(ALL_CATEGORIES):
-        result.append(FileTypeStatus(
-            category=cat,
-            enabled=enabled_map.get(cat, False),
-            supported=cat in SUPPORTED_CATEGORIES_V01,
-        ))
+        result.append(
+            FileTypeStatus(
+                category=cat,
+                enabled=enabled_map.get(cat, False),
+                supported=cat in SUPPORTED_CATEGORIES_V01,
+            )
+        )
     return result

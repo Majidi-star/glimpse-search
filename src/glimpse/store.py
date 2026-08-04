@@ -7,15 +7,12 @@ No Pydantic models here — those live in models.py for API boundaries.
 from __future__ import annotations
 
 import hashlib
-import json
 import logging
-import os
 import time
+from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterator, Literal, Sequence
-
-from glimpse.db import connect
+from typing import Any, Literal
 
 log = logging.getLogger(__name__)
 
@@ -23,6 +20,7 @@ log = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Type-ish helpers (simple classes, not Pydantic — keep DB layer light)
 # ---------------------------------------------------------------------------
+
 
 @dataclass(slots=True)
 class FileRecord:
@@ -73,6 +71,7 @@ class SearchHit:
 # Hashing & utils
 # ---------------------------------------------------------------------------
 
+
 def compute_content_hash(path: Path) -> str:
     """SHA-256 of file contents, streamed in chunks to avoid loading huge files."""
     h = hashlib.sha256()
@@ -85,6 +84,7 @@ def compute_content_hash(path: Path) -> str:
 # ---------------------------------------------------------------------------
 # Settings (key/value)
 # ---------------------------------------------------------------------------
+
 
 def get_setting(con: sqlite3.Connection, key: str, default: str = "") -> str:
     row = con.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
@@ -107,8 +107,12 @@ def get_all_settings(con: sqlite3.Connection) -> dict[str, str]:
 # File-type settings
 # ---------------------------------------------------------------------------
 
+
 def get_file_type_settings(con: sqlite3.Connection) -> dict[str, bool]:
-    return {row["category"]: bool(row["enabled"]) for row in con.execute("SELECT category, enabled FROM file_type_settings")}
+    return {
+        row["category"]: bool(row["enabled"])
+        for row in con.execute("SELECT category, enabled FROM file_type_settings")
+    }
 
 
 def set_file_type_enabled(con: sqlite3.Connection, category: str, enabled: bool) -> None:
@@ -122,6 +126,7 @@ def set_file_type_enabled(con: sqlite3.Connection, category: str, enabled: bool)
 # ---------------------------------------------------------------------------
 # Indexed locations
 # ---------------------------------------------------------------------------
+
 
 def add_location(con: sqlite3.Connection, path: str, enabled: bool = True) -> int:
     now = time.time()
@@ -138,15 +143,22 @@ def remove_location(con: sqlite3.Connection, location_id: int) -> None:
     # vec_chunks and chunks_fts have triggers/are virtual; we must delete chunks explicitly.
     # But our chunks table has no FK to files that deletes cascading (we use manual deletes below).
     # For safety, do it in order: chunks (and vec/fts via triggers) -> files -> location.
-    con.execute("DELETE FROM chunks WHERE file_id IN (SELECT id FROM files WHERE drive_or_location_id = ?)", (location_id,))
+    con.execute(
+        "DELETE FROM chunks WHERE file_id IN (SELECT id FROM files WHERE drive_or_location_id = ?)",
+        (location_id,),
+    )
     con.execute("DELETE FROM files WHERE drive_or_location_id = ?", (location_id,))
     con.execute("DELETE FROM indexed_locations WHERE id = ?", (location_id,))
 
 
 def get_locations(con: sqlite3.Connection) -> list[LocationRecord]:
     return [
-        LocationRecord(id=row["id"], path=row["path"], enabled=bool(row["enabled"]), added_at=row["added_at"])
-        for row in con.execute("SELECT id, path, enabled, added_at FROM indexed_locations ORDER BY added_at")
+        LocationRecord(
+            id=row["id"], path=row["path"], enabled=bool(row["enabled"]), added_at=row["added_at"]
+        )
+        for row in con.execute(
+            "SELECT id, path, enabled, added_at FROM indexed_locations ORDER BY added_at"
+        )
     ]
 
 
@@ -160,6 +172,7 @@ def set_location_enabled(con: sqlite3.Connection, location_id: int, enabled: boo
 # ---------------------------------------------------------------------------
 # Files
 # ---------------------------------------------------------------------------
+
 
 def upsert_file(
     con: sqlite3.Connection,
@@ -221,7 +234,9 @@ def get_files_by_location(con: sqlite3.Connection, location_id: int) -> Iterator
         yield FileRecord(**row)
 
 
-def set_file_status(con: sqlite3.Connection, file_id: int, status: Literal["pending", "indexed", "skipped", "error"]) -> None:
+def set_file_status(
+    con: sqlite3.Connection, file_id: int, status: Literal["pending", "indexed", "skipped", "error"]
+) -> None:
     con.execute("UPDATE files SET status = ? WHERE id = ?", (status, file_id))
 
 
@@ -239,10 +254,13 @@ def delete_file(con: sqlite3.Connection, file_id: int) -> None:
 # Chunks + embeddings
 # ---------------------------------------------------------------------------
 
+
 def insert_chunks(
     con: sqlite3.Connection,
     file_id: int,
-    chunks: list[dict[str, Any]],  # each: chunk_type, snippet, position_meta, embedding (bytes or None)
+    chunks: list[
+        dict[str, Any]
+    ],  # each: chunk_type, snippet, position_meta, embedding (bytes or None)
 ) -> list[int]:
     """Insert chunks and their embeddings in a single transaction.
 
@@ -283,6 +301,7 @@ def get_chunk_count(con: sqlite3.Connection, file_id: int) -> int:
 # ---------------------------------------------------------------------------
 # Search (hybrid: vec + FTS5/BM25)
 # ---------------------------------------------------------------------------
+
 
 def hybrid_search(
     con: sqlite3.Connection,
@@ -423,19 +442,30 @@ def hybrid_search(
 # Stats / monitoring
 # ---------------------------------------------------------------------------
 
+
 def get_index_stats(con: sqlite3.Connection) -> dict[str, int]:
     """Return counts for monitoring / UI."""
     stats = {}
     stats["files_total"] = con.execute("SELECT COUNT(*) FROM files").fetchone()[0]
-    stats["files_indexed"] = con.execute("SELECT COUNT(*) FROM files WHERE status = 'indexed'").fetchone()[0]
-    stats["files_pending"] = con.execute("SELECT COUNT(*) FROM files WHERE status = 'pending'").fetchone()[0]
-    stats["files_error"] = con.execute("SELECT COUNT(*) FROM files WHERE status = 'error'").fetchone()[0]
+    stats["files_indexed"] = con.execute(
+        "SELECT COUNT(*) FROM files WHERE status = 'indexed'"
+    ).fetchone()[0]
+    stats["files_pending"] = con.execute(
+        "SELECT COUNT(*) FROM files WHERE status = 'pending'"
+    ).fetchone()[0]
+    stats["files_error"] = con.execute(
+        "SELECT COUNT(*) FROM files WHERE status = 'error'"
+    ).fetchone()[0]
     stats["chunks_total"] = con.execute("SELECT COUNT(*) FROM chunks").fetchone()[0]
     stats["locations_total"] = con.execute("SELECT COUNT(*) FROM indexed_locations").fetchone()[0]
-    stats["locations_enabled"] = con.execute("SELECT COUNT(*) FROM indexed_locations WHERE enabled = 1").fetchone()[0]
+    stats["locations_enabled"] = con.execute(
+        "SELECT COUNT(*) FROM indexed_locations WHERE enabled = 1"
+    ).fetchone()[0]
     return stats
 
 
 def get_file_types(con: sqlite3.Connection) -> list[dict[str, Any]]:
-    rows = con.execute("SELECT category, enabled FROM file_type_settings ORDER BY category").fetchall()
+    rows = con.execute(
+        "SELECT category, enabled FROM file_type_settings ORDER BY category"
+    ).fetchall()
     return [{"category": r["category"], "enabled": bool(r["enabled"])} for r in rows]

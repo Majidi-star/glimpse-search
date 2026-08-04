@@ -19,19 +19,20 @@ from enum import Enum
 
 import psutil
 
-from glimpse.config import ProfileDefaults, HardwareProfile, PROFILES
+from glimpse.config import PROFILES, HardwareProfile, ProfileDefaults
 
 log = logging.getLogger(__name__)
 
 
 class GovernorMode(Enum):
-    GOVERNED = "governed"      # normal: respects all signals
+    GOVERNED = "governed"  # normal: respects all signals
     MAX_EFFORT = "max_effort"  # suspended: ignores idle/battery, normal priority
 
 
 @dataclass(slots=True)
 class GovernorDecision:
     """Result of a governor poll."""
+
     should_run: bool
     batch_size: int
     sleep_ms: int
@@ -112,7 +113,9 @@ class ResourceGovernor:
             )
         if cpu_pct >= self._profile.cpu_high_pct:
             # Throttle batch size proportionally
-            factor = 1.0 - (cpu_pct - self._profile.cpu_high_pct) / (100 - self._profile.cpu_high_pct)
+            factor = 1.0 - (cpu_pct - self._profile.cpu_high_pct) / (
+                100 - self._profile.cpu_high_pct
+            )
             batch_size = max(1, int(self._profile.batch_size * factor))
             reasons.append(f"cpu_high ({cpu_pct:.0f}%)")
         else:
@@ -212,6 +215,7 @@ class ResourceGovernor:
         """Try to initialize NVML for GPU monitoring."""
         try:
             import pynvml
+
             pynvml.nvmlInit()
             self._nvml_handle = pynvml.nvmlDeviceGetHandleByIndex(0)
             self._has_gpu = True
@@ -226,6 +230,7 @@ class ResourceGovernor:
             return None
         try:
             import pynvml
+
             util = pynvml.nvmlDeviceGetUtilizationRates(self._nvml_handle)
             return float(util.gpu)
         except Exception:
@@ -236,6 +241,7 @@ class ResourceGovernor:
         if self._has_gpu:
             try:
                 import pynvml
+
                 pynvml.nvmlShutdown()
             except Exception:
                 pass

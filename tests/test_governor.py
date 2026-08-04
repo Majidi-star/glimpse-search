@@ -1,9 +1,8 @@
 """Tests for resource governor and job queue."""
 
-import time
-from glimpse.governor import ResourceGovernor, GovernorMode, GovernorDecision
-from glimpse.queue import JobQueue, JobPriority, IndexJob
 from glimpse.config import HardwareProfile
+from glimpse.governor import GovernorMode, ResourceGovernor
+from glimpse.queue import JobPriority, JobQueue
 
 
 class TestResourceGovernor:
@@ -19,6 +18,7 @@ class TestResourceGovernor:
 
     def test_governed_mode_pauses_on_high_cpu(self):
         from glimpse.governor import ProfileDefaults
+
         gov = ResourceGovernor(HardwareProfile.BALANCED, max_effort=False)
         # Mock high CPU by replacing profile with low pause threshold
         gov._profile = ProfileDefaults(

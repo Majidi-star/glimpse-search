@@ -13,12 +13,11 @@ from pathlib import Path
 import pypdf
 
 from glimpse.extractor.base import (
+    GIST_MAX_CHARS,
+    PDF_CHUNK_CAP,
+    SNIPPET_MAX_CHARS,
     Chunk,
     ExtractionResult,
-    Extractor,
-    GIST_MAX_CHARS,
-    SNIPPET_MAX_CHARS,
-    PDF_CHUNK_CAP,
     merge_chunks_hierarchical,
     register,
     truncate,
@@ -64,8 +63,11 @@ class PdfExtractor:
             for para_idx, para in enumerate(paragraphs):
                 snippet = truncate(para, SNIPPET_MAX_CHARS)
                 import json
+
                 position_meta = json.dumps({"page": page_idx + 1, "paragraph": para_idx})
-                chunks.append(Chunk(chunk_type="text", snippet=snippet, position_meta=position_meta))
+                chunks.append(
+                    Chunk(chunk_type="text", snippet=snippet, position_meta=position_meta)
+                )
 
                 if len(chunks) >= PDF_CHUNK_CAP * 2:  # early stop before merge
                     break

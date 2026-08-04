@@ -3,8 +3,13 @@
 import tempfile
 from pathlib import Path
 
-from glimpse.extractor.base import get_extractor, get_all_extractors, merge_chunks_hierarchical, Chunk
 from glimpse.config import V01_SUPPORTED_CATEGORIES
+from glimpse.extractor.base import (
+    Chunk,
+    get_all_extractors,
+    get_extractor,
+    merge_chunks_hierarchical,
+)
 
 
 class TestExtractors:
@@ -109,6 +114,7 @@ class TestPdfExtractor:
 
     def test_empty_pdf(self):
         from pypdf import PdfWriter
+
         p = self.tmp / "empty.pdf"
         writer = PdfWriter()
         writer.add_blank_page(width=612, height=792)

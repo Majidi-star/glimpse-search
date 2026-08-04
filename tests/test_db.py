@@ -1,11 +1,12 @@
 """Tests for database schema and sqlite-vec."""
 
 import tempfile
-import pytest
 from pathlib import Path
 
-from glimpse.db import init_db, connect, SCHEMA_VERSION
-from glimpse.store import add_location, upsert_file, get_file_by_path, compute_content_hash
+import pytest
+
+from glimpse.db import SCHEMA_VERSION, connect, init_db
+from glimpse.store import add_location, upsert_file
 
 
 class TestDatabase:
@@ -20,31 +21,49 @@ class TestDatabase:
     def test_schema_created(self):
         with connect(self.db_path) as con:
             # Check all tables exist
-            tables = [row[0] for row in con.execute(
-                "SELECT name FROM sqlite_master WHERE type='table'"
-            ).fetchall()]
+            tables = [
+                row[0]
+                for row in con.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table'"
+                ).fetchall()
+            ]
             expected = {
-                "files", "chunks", "vec_chunks", "chunks_fts",
-                "indexed_locations", "file_type_settings",
-                "model_providers", "settings", "schema_version"
+                "files",
+                "chunks",
+                "vec_chunks",
+                "chunks_fts",
+                "indexed_locations",
+                "file_type_settings",
+                "model_providers",
+                "settings",
+                "schema_version",
             }
             for t in expected:
                 assert t in tables, f"Missing table: {t}"
 
     def test_vec_chunks_works(self):
         with connect(self.db_path) as con:
-            import sqlite_vec
             import numpy as np
+            import sqlite_vec
+
             vec = np.random.rand(384).astype(np.float32)
-            con.execute("INSERT INTO vec_chunks(rowid, embedding) VALUES (1, ?)", (sqlite_vec.serialize_float32(vec),))
-            row = con.execute("SELECT vec_distance_cosine(embedding, ?) FROM vec_chunks WHERE rowid=1", (sqlite_vec.serialize_float32(vec),)).fetchone()
+            con.execute(
+                "INSERT INTO vec_chunks(rowid, embedding) VALUES (1, ?)",
+                (sqlite_vec.serialize_float32(vec),),
+            )
+            row = con.execute(
+                "SELECT vec_distance_cosine(embedding, ?) FROM vec_chunks WHERE rowid=1",
+                (sqlite_vec.serialize_float32(vec),),
+            ).fetchone()
             assert row[0] < 0.001  # distance to self ~ 0
 
     def test_fts5_works(self):
         with connect(self.db_path) as con:
             from glimpse.store import add_location, upsert_file
+
             loc_id = add_location(con, "/test")
-            file_id = upsert_file(con,
+            file_id = upsert_file(
+                con,
                 path="/test/file.txt",
                 drive_or_location_id=loc_id,
                 file_type="text",
@@ -52,13 +71,21 @@ class TestDatabase:
                 mtime=1000.0,
                 size_bytes=100,
                 gist="test",
-                status="indexed"
+                status="indexed",
             )
-            con.execute("INSERT INTO chunks(id, file_id, chunk_type, snippet) VALUES (1, ?, 'text', 'hello world')", (file_id,))
-            con.execute("INSERT INTO chunks(id, file_id, chunk_type, snippet) VALUES (2, ?, 'text', 'foo bar')", (file_id,))
-            rows = con.execute("SELECT snippet FROM chunks_fts WHERE chunks_fts MATCH 'hello'").fetchall()
+            con.execute(
+                "INSERT INTO chunks(id, file_id, chunk_type, snippet) VALUES (1, ?, 'text', 'hello world')",
+                (file_id,),
+            )
+            con.execute(
+                "INSERT INTO chunks(id, file_id, chunk_type, snippet) VALUES (2, ?, 'text', 'foo bar')",
+                (file_id,),
+            )
+            rows = con.execute(
+                "SELECT snippet FROM chunks_fts WHERE chunks_fts MATCH 'hello'"
+            ).fetchall()
             assert len(rows) == 1
-            assert rows[0][0] == 'hello world'
+            assert rows[0][0] == "hello world"
 
     def test_schema_version(self):
         with connect(self.db_path) as con:
@@ -102,7 +129,8 @@ class TestStore:
             loc_id2 = add_location(con, "/home/user/code")
             con.commit()
 
-            from glimpse.store import get_locations, set_location_enabled, remove_location
+            from glimpse.store import get_locations, remove_location, set_location_enabled
+
             locs = get_locations(con)
             assert len(locs) == 2
 
@@ -123,7 +151,8 @@ class TestStore:
             con.commit()
 
             # Insert file
-            file_id1 = upsert_file(con,
+            file_id1 = upsert_file(
+                con,
                 path="/home/user/docs/readme.md",
                 drive_or_location_id=loc_id,
                 file_type="text",
@@ -131,12 +160,13 @@ class TestStore:
                 mtime=1000.0,
                 size_bytes=100,
                 gist="test",
-                status="indexed"
+                status="indexed",
             )
             con.commit()
 
             # Upsert with same hash+mtime -> should return same ID
-            file_id2 = upsert_file(con,
+            file_id2 = upsert_file(
+                con,
                 path="/home/user/docs/readme.md",
                 drive_or_location_id=loc_id,
                 file_type="text",
@@ -144,14 +174,15 @@ class TestStore:
                 mtime=1000.0,
                 size_bytes=100,
                 gist="test",
-                status="indexed"
+                status="indexed",
             )
             con.commit()
 
             assert file_id1 == file_id2
 
             # Different hash -> new file (but same path, so updates)
-            file_id3 = upsert_file(con,
+            file_id3 = upsert_file(
+                con,
                 path="/home/user/docs/readme.md",
                 drive_or_location_id=loc_id,
                 file_type="text",
@@ -159,19 +190,21 @@ class TestStore:
                 mtime=2000.0,
                 size_bytes=200,
                 gist="updated",
-                status="indexed"
+                status="indexed",
             )
             con.commit()
 
             assert file_id3 == file_id1  # same path, upsert updates
             from glimpse.store import get_file_by_path
+
             f = get_file_by_path(con, "/home/user/docs/readme.md")
             assert f.content_hash == "def456"
 
     def test_remove_location_cascades(self):
         with connect(self.db_path) as con:
             loc_id = add_location(con, "/home/user/docs")
-            file_id = upsert_file(con,
+            file_id = upsert_file(
+                con,
                 path="/home/user/docs/readme.md",
                 drive_or_location_id=loc_id,
                 file_type="text",
@@ -179,11 +212,12 @@ class TestStore:
                 mtime=1000.0,
                 size_bytes=100,
                 gist="test",
-                status="indexed"
+                status="indexed",
             )
             con.commit()
 
             from glimpse.store import get_index_stats, remove_location
+
             stats = get_index_stats(con)
             assert stats["files_total"] == 1
 
@@ -197,6 +231,7 @@ class TestStore:
     def test_file_type_settings(self):
         with connect(self.db_path) as con:
             from glimpse.store import get_file_type_settings, set_file_type_enabled
+
             settings = get_file_type_settings(con)
             assert settings["text"] is True
 

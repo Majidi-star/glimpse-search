@@ -22,28 +22,32 @@ log = logging.getLogger(__name__)
 # Data structures
 # ---------------------------------------------------------------------------
 
+
 @dataclass(slots=True)
 class Chunk:
     """A searchable chunk extracted from a file.
 
     Fields match the ``chunks`` table (store.py).
     """
-    chunk_type: str           # text | image | video_frame | video_transcript
-    snippet: str              # ~150 chars, truncated for display
+
+    chunk_type: str  # text | image | video_frame | video_transcript
+    snippet: str  # ~150 chars, truncated for display
     position_meta: str | None = None  # JSON string: page #, timestamp, region, etc.
-    embedding: bytes | None = None    # filled in later by the indexer
+    embedding: bytes | None = None  # filled in later by the indexer
 
 
 @dataclass(slots=True)
 class ExtractionResult:
     """Result of extracting a single file."""
-    gist: str                 # ~300 char file summary
-    chunks: list[Chunk]       # searchable chunks
+
+    gist: str  # ~300 char file summary
+    chunks: list[Chunk]  # searchable chunks
 
 
 # ---------------------------------------------------------------------------
 # Protocol
 # ---------------------------------------------------------------------------
+
 
 @runtime_checkable
 class Extractor(Protocol):
@@ -54,13 +58,12 @@ class Extractor(Protocol):
     - ``can_handle(path)``: quick check (extension / magic bytes) before expensive work
     - ``extract(path)``: the actual extraction, returning gist + chunks
     """
+
     category: str
 
-    def can_handle(self, path: Path) -> bool:
-        ...
+    def can_handle(self, path: Path) -> bool: ...
 
-    def extract(self, path: Path) -> ExtractionResult:
-        ...
+    def extract(self, path: Path) -> ExtractionResult: ...
 
 
 # ---------------------------------------------------------------------------
@@ -102,27 +105,41 @@ def merge_chunks_hierarchical(chunks: list[Chunk], cap: int) -> list[Chunk]:
         while i < len(chunks):
             if i + 1 < len(chunks):
                 # Merge pair
-                merged_snippet = truncate(chunks[i].snippet + " " + chunks[i + 1].snippet, SNIPPET_MAX_CHARS)
+                merged_snippet = truncate(
+                    chunks[i].snippet + " " + chunks[i + 1].snippet, SNIPPET_MAX_CHARS
+                )
                 merged_meta = None
                 if chunks[i].position_meta or chunks[i + 1].position_meta:
                     import json
+
                     m1 = json.loads(chunks[i].position_meta) if chunks[i].position_meta else {}
-                    m2 = json.loads(chunks[i + 1].position_meta) if chunks[i + 1].position_meta else {}
+                    m2 = (
+                        json.loads(chunks[i + 1].position_meta)
+                        if chunks[i + 1].position_meta
+                        else {}
+                    )
                     # Merge page ranges etc.
                     if "page" in m1 or "page" in m2:
-                        pages = sorted(set(
-                            [m1.get("page")] if m1.get("page") else [] +
-                            [m2.get("page")] if m2.get("page") else []
-                        ))
+                        pages = sorted(
+                            set(
+                                [m1.get("page")]
+                                if m1.get("page")
+                                else [] + [m2.get("page")]
+                                if m2.get("page")
+                                else []
+                            )
+                        )
                         if len(pages) == 1:
                             merged_meta = json.dumps({"page": pages[0]})
                         elif len(pages) > 1:
                             merged_meta = json.dumps({"pages": pages})
-                new_chunks.append(Chunk(
-                    chunk_type=chunks[i].chunk_type,
-                    snippet=merged_snippet,
-                    position_meta=merged_meta,
-                ))
+                new_chunks.append(
+                    Chunk(
+                        chunk_type=chunks[i].chunk_type,
+                        snippet=merged_snippet,
+                        position_meta=merged_meta,
+                    )
+                )
                 i += 2
             else:
                 new_chunks.append(chunks[i])
@@ -159,6 +176,7 @@ def get_all_extractors() -> list[Extractor]:
 # Stub extractors for future milestones (office, image, video)
 # ---------------------------------------------------------------------------
 
+
 class _StubExtractor:
     """Extractor that logs a warning and returns empty results (v0.1)."""
 
@@ -170,7 +188,11 @@ class _StubExtractor:
         return False  # never called in v0.1 since file_type_settings disables these
 
     def extract(self, path: Path) -> ExtractionResult:
-        log.warning("Extractor for %s not implemented until %s; returning empty", self.category, self._milestone)
+        log.warning(
+            "Extractor for %s not implemented until %s; returning empty",
+            self.category,
+            self._milestone,
+        )
         return ExtractionResult(gist="", chunks=[])
 
 

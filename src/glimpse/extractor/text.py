@@ -14,12 +14,11 @@ import re
 from pathlib import Path
 
 from glimpse.extractor.base import (
-    Chunk,
-    ExtractionResult,
-    Extractor,
     GIST_MAX_CHARS,
     SNIPPET_MAX_CHARS,
     TEXT_CHUNK_CAP,
+    Chunk,
+    ExtractionResult,
     merge_chunks_hierarchical,
     register,
     truncate,
@@ -56,6 +55,7 @@ class TextExtractor:
             snippet = truncate(para, SNIPPET_MAX_CHARS)
             # Position meta: paragraph index
             import json
+
             position_meta = json.dumps({"paragraph": idx})
             chunks.append(Chunk(chunk_type="text", snippet=snippet, position_meta=position_meta))
 

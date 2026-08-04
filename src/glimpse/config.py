@@ -32,11 +32,11 @@ class ProfileDefaults:
     """Governor + worker defaults tied to a hardware profile (spec §8)."""
 
     worker_threads: int
-    cpu_high_pct: float          # above this, throttle batches
-    cpu_pause_pct: float         # above this, pause entirely
-    batch_size: int              # chunks processed per governor-approved batch
-    idle_gate_min: float         # only go full background rate after N min idle (0 = no gate)
-    battery_pause_below_pct: int # pause background work below this battery %
+    cpu_high_pct: float  # above this, throttle batches
+    cpu_pause_pct: float  # above this, pause entirely
+    batch_size: int  # chunks processed per governor-approved batch
+    idle_gate_min: float  # only go full background rate after N min idle (0 = no gate)
+    battery_pause_below_pct: int  # pause background work below this battery %
     video_default_on: bool
     larger_models: bool
 
@@ -79,10 +79,10 @@ PROFILES: dict[HardwareProfile, ProfileDefaults] = {
 # v0.1 only enables text/code/pdf; the others are present so toggles are stable
 # across milestones and disables-immediately works as specified.
 FILE_TYPE_CATEGORIES = (
-    "text",   # .txt, .md
-    "code",   # code files (language-aware chunking)
-    "pdf",    # .pdf
-    "office", # .docx etc.   (v0.2)
+    "text",  # .txt, .md
+    "code",  # code files (language-aware chunking)
+    "pdf",  # .pdf
+    "office",  # .docx etc.   (v0.2)
     "image",  # jpg/png/...   (v0.2)
     "video",  # mp4/mov/...   (v0.4)
 )
@@ -108,8 +108,12 @@ class Paths:
     log_path: Path
 
     @classmethod
-    def resolve(cls, override: Path | None = None) -> "Paths":
-        base = override if override is not None else Path(platformdirs.user_data_dir(_APP_NAME, _APP_AUTHOR))
+    def resolve(cls, override: Path | None = None) -> Paths:
+        base = (
+            override
+            if override is not None
+            else Path(platformdirs.user_data_dir(_APP_NAME, _APP_AUTHOR))
+        )
         base = Path(base)
         models = base / "models"
         base.mkdir(parents=True, exist_ok=True)
@@ -125,9 +129,9 @@ class Paths:
 # Default key/value settings persisted into the ``settings`` table on first run.
 DEFAULT_SETTINGS: dict[str, str] = {
     "profile": HardwareProfile.BALANCED.value,
-    "max_effort": "0",                 # governor active at startup
-    "paused": "0",                     # worker not paused at startup
-    "search_vector_weight": "0.6",     # hybrid rerank weights
+    "max_effort": "0",  # governor active at startup
+    "paused": "0",  # worker not paused at startup
+    "search_vector_weight": "0.6",  # hybrid rerank weights
     "search_keyword_weight": "0.4",
     "search_top_k": "50",
 }
@@ -148,7 +152,7 @@ class RuntimeFlags:
     offline / no-VPN-for-torch situations.
     """
 
-    headless: bool = field(default=False)   # skip tray+webview (for tests / CI)
+    headless: bool = field(default=False)  # skip tray+webview (for tests / CI)
     embed_offline: bool = field(default=False)  # never fetch the real model
 
 
@@ -164,7 +168,7 @@ def suggest_profile() -> HardwareProfile:
 
     try:
         cores = psutil.cpu_count(logical=False) or psutil.cpu_count(logical=True) or 1
-        ram_gb = (psutil.virtual_memory().total / (1024 ** 3)) if psutil.virtual_memory() else 0.0
+        ram_gb = (psutil.virtual_memory().total / (1024**3)) if psutil.virtual_memory() else 0.0
     except Exception:  # pragma: no cover
         cores, ram_gb = 1, 0.0
 

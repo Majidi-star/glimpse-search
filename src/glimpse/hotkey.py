@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import threading
-from typing import Callable, Optional
+from collections.abc import Callable
 
 import keyboard
 
@@ -18,7 +18,7 @@ class HotkeyManager:
         self._hotkey = hotkey
         self._on_activate = on_activate
         self._registered = False
-        self._thread: Optional[threading.Thread] = None
+        self._thread: threading.Thread | None = None
 
     def start(self) -> bool:
         """Register the global hotkey. Returns True on success."""

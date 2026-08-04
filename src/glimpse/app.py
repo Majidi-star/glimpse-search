@@ -11,41 +11,37 @@ Lifecycle:
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import socket
 import threading
 import time
-import uvicorn
-from pathlib import Path
 
+import uvicorn
 import webview
 
+from glimpse.backend import STATE
+from glimpse.backend import app as fastapi_app
 from glimpse.config import (
     DEFAULT_HOTKEY,
     HTTP_HOST,
-    HTTP_PORT,
+    HardwareProfile,
     Paths,
     RuntimeFlags,
-    suggest_profile,
-    HardwareProfile,
 )
-from glimpse.db import init_db, connect
+from glimpse.db import connect, init_db
 from glimpse.embedder import get_embedder
 from glimpse.governor import GovernorMode, ResourceGovernor
+from glimpse.hotkey import HotkeyManager
 from glimpse.indexer import create_indexer
-from glimpse.queue import JobQueue, JobPriority
+from glimpse.queue import JobQueue
 from glimpse.store import (
-    add_location,
     get_all_settings,
     get_file_type_settings,
-    get_index_stats,
     get_locations,
-    set_file_type_enabled,
 )
-from glimpse.watcher import WatcherManager
-from glimpse.backend import app as fastapi_app, STATE
 from glimpse.tray import TrayApp
-from glimpse.hotkey import HotkeyManager
+from glimpse.watcher import WatcherManager
 
 log = logging.getLogger(__name__)
 
@@ -79,6 +75,7 @@ class GlimpseApp:
         self._hotkey: HotkeyManager | None = None
         self._search_window: webview.Window | None = None
         self._settings_window: webview.Window | None = None
+        self._anchor_window: webview.Window | None = None  # hidden window keeps webview loop alive
         self._http_port = 0
         self._running = False
 
@@ -95,9 +92,10 @@ class GlimpseApp:
         self._startup()
         self._running = True
 
-        # Tray runs on main thread (blocks)
         if not self._flags.headless:
-            self._tray.run()
+            # pywebview owns the main thread; tray runs on a background thread
+            log.info("Starting pywebview event loop on main thread")
+            webview.start(debug=False, http_server=False)
         else:
             # Headless: just wait
             try:
@@ -126,7 +124,9 @@ class GlimpseApp:
         self._queue = JobQueue(self._governor)
 
         # 3. Create indexer
-        self._indexer = create_indexer(self._db_path, self._flags, batch_size=self._governor._profile.batch_size)
+        self._indexer = create_indexer(
+            self._db_path, self._flags, batch_size=self._governor._profile.batch_size
+        )
 
         # 4. Start FastAPI backend
         self._start_backend()
@@ -231,10 +231,11 @@ class GlimpseApp:
 
     def _warm_embedder(self) -> None:
         """Trigger embedder load in background (non-blocking)."""
+
         def _warm():
             try:
                 emb = get_embedder(self._flags)
-                if hasattr(emb, '_ensure_loaded'):
+                if hasattr(emb, "_ensure_loaded"):
                     emb._ensure_loaded()  # type: ignore
                 log.info("Embedder ready: %s", type(emb).__name__)
             except Exception as e:
@@ -243,6 +244,19 @@ class GlimpseApp:
         threading.Thread(target=_warm, daemon=True).start()
 
     def _setup_tray_and_hotkey(self) -> None:
+        # Create a hidden anchor window to keep pywebview's event loop alive
+        # when no user-visible windows are open
+        self._anchor_window = webview.create_window(
+            "Glimpse Anchor",
+            f"http://{HTTP_HOST}:{self._http_port}/static/index.html",
+            width=1,
+            height=1,
+            hidden=True,
+            frameless=True,
+            easy_drag=False,
+            on_top=False,
+        )
+
         self._tray = TrayApp(
             on_search=self._show_search,
             on_settings=self._show_settings,
@@ -252,6 +266,8 @@ class GlimpseApp:
             get_max_effort=lambda: self._max_effort,
             get_paused=lambda: self._paused,
         )
+
+        self._tray.start_in_background()
 
         self._hotkey = HotkeyManager(DEFAULT_HOTKEY, self._show_search)
         self._hotkey.start()
@@ -273,9 +289,11 @@ class GlimpseApp:
                 easy_drag=True,
                 on_top=True,
             )
+
             # Handle window close
             def on_closed():
                 self._search_window = None
+
             self._search_window.events.closed += on_closed
         else:
             # Bring to front
@@ -297,8 +315,10 @@ class GlimpseApp:
                 frameless=False,
                 easy_drag=True,
             )
+
             def on_closed():
                 self._settings_window = None
+
             self._settings_window.events.closed += on_closed
         else:
             try:
@@ -311,6 +331,7 @@ class GlimpseApp:
         self._max_effort = enabled
         with connect(self._db_path) as con:
             from glimpse.store import set_setting
+
             set_setting(con, "max_effort", "1" if enabled else "0")
             con.commit()
 
@@ -325,6 +346,7 @@ class GlimpseApp:
         self._paused = paused
         with connect(self._db_path) as con:
             from glimpse.store import set_setting
+
             set_setting(con, "paused", "1" if paused else "0")
             con.commit()
 
@@ -340,6 +362,10 @@ class GlimpseApp:
         self._running = False
         if self._tray:
             self._tray.stop()
+        # Destroy the anchor window to exit webview.start()
+        if self._anchor_window:
+            with contextlib.suppress(Exception):
+                webview.destroy_window(self._anchor_window)
 
     # ---------------------------------------------------------------------
     # Shutdown
@@ -371,7 +397,9 @@ def main():
 
     parser = argparse.ArgumentParser(description="Glimpse - Local Semantic File Search")
     parser.add_argument("--headless", action="store_true", help="Run without UI (for testing)")
-    parser.add_argument("--embed-offline", action="store_true", help="Never download embedding model")
+    parser.add_argument(
+        "--embed-offline", action="store_true", help="Never download embedding model"
+    )
     args = parser.parse_args()
 
     flags = RuntimeFlags(

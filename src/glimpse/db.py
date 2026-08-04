@@ -10,12 +10,10 @@ from __future__ import annotations
 import contextlib
 import logging
 import sqlite3
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Iterator
 
 import sqlite_vec
-
-from glimpse.config import Paths
 
 log = logging.getLogger(__name__)
 
@@ -174,13 +172,16 @@ def init_db(db_path: Path, *, reset: bool = False) -> None:
             con.execute("INSERT INTO schema_version(version) VALUES (?)", (SCHEMA_VERSION,))
         elif row[0] < SCHEMA_VERSION:
             # TODO: implement migrations when schema evolves
-            log.warning("Schema version %d < %d; no migrations implemented yet", row[0], SCHEMA_VERSION)
+            log.warning(
+                "Schema version %d < %d; no migrations implemented yet", row[0], SCHEMA_VERSION
+            )
             con.execute("UPDATE schema_version SET version = ?", (SCHEMA_VERSION,))
 
         # Seed default file_type_settings if empty
         cur = con.execute("SELECT COUNT(*) FROM file_type_settings")
         if cur.fetchone()[0] == 0:
             from glimpse.config import DEFAULT_FILE_TYPE_ENABLED
+
             for cat, enabled in DEFAULT_FILE_TYPE_ENABLED.items():
                 con.execute(
                     "INSERT INTO file_type_settings(category, enabled) VALUES (?, ?)",
@@ -191,6 +192,7 @@ def init_db(db_path: Path, *, reset: bool = False) -> None:
         cur = con.execute("SELECT COUNT(*) FROM settings")
         if cur.fetchone()[0] == 0:
             from glimpse.config import DEFAULT_SETTINGS
+
             for k, v in DEFAULT_SETTINGS.items():
                 con.execute("INSERT INTO settings(key, value) VALUES (?, ?)", (k, v))
 

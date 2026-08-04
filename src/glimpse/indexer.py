@@ -11,25 +11,21 @@ from the JobQueue. Handles:
 from __future__ import annotations
 
 import logging
-import os
-import time
 from pathlib import Path
-from typing import Callable
 
 from glimpse.config import V01_SUPPORTED_CATEGORIES
 from glimpse.db import connect
-from glimpse.embedder import get_embedder, serialize_embedding, EMBED_DIM
-from glimpse.extractor.base import get_extractor, ExtractionResult
-from glimpse.queue import IndexJob, JobPriority
+from glimpse.embedder import EMBED_DIM, get_embedder, serialize_embedding
+from glimpse.extractor.base import ExtractionResult, get_extractor
+from glimpse.queue import IndexJob
 from glimpse.store import (
-    upsert_file,
-    get_file_by_path,
-    get_file_by_id,
-    set_file_status,
-    set_file_gist,
-    delete_chunks_for_file,
-    insert_chunks,
     compute_content_hash,
+    delete_chunks_for_file,
+    get_file_by_path,
+    insert_chunks,
+    set_file_gist,
+    set_file_status,
+    upsert_file,
 )
 
 log = logging.getLogger(__name__)
@@ -81,7 +77,11 @@ class Indexer:
         # Check if already indexed with same hash+mtime
         with connect(self._db_path) as con:
             existing = get_file_by_path(con, str(path))
-            if existing and existing.content_hash == content_hash and abs(existing.mtime - mtime) < 1.0:
+            if (
+                existing
+                and existing.content_hash == content_hash
+                and abs(existing.mtime - mtime) < 1.0
+            ):
                 # No-op: unchanged
                 log.debug("File unchanged, skipping: %s", path)
                 set_file_status(con, existing.id, "indexed")
@@ -146,7 +146,7 @@ class Indexer:
         embeddings: list[bytes] = []
 
         for i in range(0, len(chunk_texts), self._batch_size):
-            batch = chunk_texts[i:i + self._batch_size]
+            batch = chunk_texts[i : i + self._batch_size]
             try:
                 vecs = self._embedder.embed_texts(batch)
                 for vec in vecs:
@@ -155,6 +155,7 @@ class Indexer:
                 log.exception("Embedding failed for batch: %s", e)
                 # Fall back to hashing embedder for this batch
                 from glimpse.embedder import HashingEmbedder
+
                 fallback = HashingEmbedder(EMBED_DIM)
                 vecs = fallback.embed_texts(batch)
                 for vec in vecs:
@@ -163,12 +164,14 @@ class Indexer:
         # Prepare chunk records
         chunk_records = []
         for chunk, emb in zip(result.chunks, embeddings):
-            chunk_records.append({
-                "chunk_type": chunk.chunk_type,
-                "snippet": chunk.snippet,
-                "position_meta": chunk.position_meta,
-                "embedding": emb,
-            })
+            chunk_records.append(
+                {
+                    "chunk_type": chunk.chunk_type,
+                    "snippet": chunk.snippet,
+                    "position_meta": chunk.position_meta,
+                    "embedding": emb,
+                }
+            )
 
         # Store in DB
         try:
@@ -200,9 +203,29 @@ class Indexer:
         ext = path.suffix.lower()
         if ext in {".txt", ".md", ".markdown", ".rst", ".text"}:
             return "text"
-        if ext in {".py", ".pyw", ".pyi", ".js", ".jsx", ".mjs", ".cjs",
-                   ".ts", ".tsx", ".go", ".rs", ".java", ".cpp", ".cc", ".cxx",
-                   ".hpp", ".h", ".hxx", ".cs", ".rb", ".php"}:
+        if ext in {
+            ".py",
+            ".pyw",
+            ".pyi",
+            ".js",
+            ".jsx",
+            ".mjs",
+            ".cjs",
+            ".ts",
+            ".tsx",
+            ".go",
+            ".rs",
+            ".java",
+            ".cpp",
+            ".cc",
+            ".cxx",
+            ".hpp",
+            ".h",
+            ".hxx",
+            ".cs",
+            ".rb",
+            ".php",
+        }:
             return "code"
         if ext == ".pdf":
             return "pdf"

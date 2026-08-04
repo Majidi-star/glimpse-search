@@ -8,18 +8,14 @@ Enqueues jobs to the JobQueue for indexing.
 from __future__ import annotations
 
 import logging
-import os
 import threading
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
 
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
 from watchdog.observers import Observer
 
-from glimpse.config import FILE_TYPE_CATEGORIES, V01_SUPPORTED_CATEGORIES
-from glimpse.extractor.base import get_extractor
-from glimpse.queue import JobQueue, JobPriority
-from glimpse.store import get_file_type_settings
+from glimpse.queue import JobPriority, JobQueue
 
 log = logging.getLogger(__name__)
 
@@ -60,9 +56,29 @@ class IndexEventHandler(FileSystemEventHandler):
         """Map file extension to category."""
         if ext in {".txt", ".md", ".markdown", ".rst", ".text"}:
             return "text"
-        if ext in {".py", ".pyw", ".pyi", ".js", ".jsx", ".mjs", ".cjs",
-                   ".ts", ".tsx", ".go", ".rs", ".java", ".cpp", ".cc", ".cxx",
-                   ".hpp", ".h", ".hxx", ".cs", ".rb", ".php"}:
+        if ext in {
+            ".py",
+            ".pyw",
+            ".pyi",
+            ".js",
+            ".jsx",
+            ".mjs",
+            ".cjs",
+            ".ts",
+            ".tsx",
+            ".go",
+            ".rs",
+            ".java",
+            ".cpp",
+            ".cc",
+            ".cxx",
+            ".hpp",
+            ".h",
+            ".hxx",
+            ".cs",
+            ".rb",
+            ".php",
+        }:
             return "code"
         if ext == ".pdf":
             return "pdf"
@@ -78,7 +94,7 @@ class IndexEventHandler(FileSystemEventHandler):
         """Enqueue a job for the given path."""
         # We need a file_id. For new files we'll use a synthetic negative id
         # and the indexer will assign a real one after upsert.
-        # But we need the file to exist in the DB first... 
+        # But we need the file to exist in the DB first...
         # Simpler: the indexer handles the full flow. We just pass the path
         # and let indexer do upsert + enqueue for embeddings.
         # For now, we need a file_id to dedupe. Use a hash of the path.

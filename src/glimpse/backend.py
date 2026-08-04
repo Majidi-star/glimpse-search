@@ -23,41 +23,34 @@ import os
 import time
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Any
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from glimpse.config import (
-    DEFAULT_HOTKEY,
-    FILE_TYPE_CATEGORIES,
-    HardwareProfile,
     PROFILES,
+    HardwareProfile,
     RuntimeFlags,
-    V01_SUPPORTED_CATEGORIES,
 )
 from glimpse.db import connect
-from glimpse.embedder import get_embedder, HashingEmbedder
+from glimpse.embedder import HashingEmbedder, get_embedder
 from glimpse.governor import GovernorMode, ResourceGovernor
-from glimpse.indexer import create_indexer
 from glimpse.models import (
     ALL_CATEGORIES,
     SUPPORTED_CATEGORIES_V01,
     AppStateResponse,
     FileTypeStatus,
-    FileTypeToggle,
     LocationCreate,
     LocationResponse,
     OpenFileRequest,
     OpenFileResponse,
     PerfSettings,
     PerfSettingsUpdate,
-    SearchRequest,
     SearchResponse,
     get_file_type_statuses,
 )
-from glimpse.queue import JobPriority, JobQueue
+from glimpse.queue import JobQueue
 from glimpse.store import (
     add_location,
     get_all_settings,
@@ -69,7 +62,6 @@ from glimpse.store import (
     set_file_type_enabled,
     set_location_enabled,
     set_setting,
-    upsert_file,
 )
 from glimpse.watcher import WatcherManager
 
@@ -78,6 +70,7 @@ log = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Global state (set by app.py on startup)
 # ---------------------------------------------------------------------------
+
 
 class AppState:
     """Singleton holding cross-component references."""
@@ -97,6 +90,7 @@ STATE = AppState()
 # ---------------------------------------------------------------------------
 # Lifespan
 # ---------------------------------------------------------------------------
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -124,6 +118,7 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _require_components():
     if not all([STATE.db_path, STATE.queue, STATE.governor, STATE.watcher_manager, STATE.indexer]):
         raise HTTPException(503, "App not fully initialized")
@@ -143,6 +138,7 @@ def _get_enabled_location_ids() -> list[int]:
 # ---------------------------------------------------------------------------
 # Search
 # ---------------------------------------------------------------------------
+
 
 @app.get("/api/search", response_model=SearchResponse)
 async def search(q: str, top_k: int | None = None):
@@ -165,6 +161,7 @@ async def search(q: str, top_k: int | None = None):
     embedder = get_embedder(STATE.runtime_flags)
     query_vec = embedder.embed_texts([q])[0]
     from glimpse.embedder import serialize_embedding
+
     query_emb = serialize_embedding(query_vec)
 
     # Hybrid search
@@ -188,6 +185,7 @@ async def search(q: str, top_k: int | None = None):
 # State
 # ---------------------------------------------------------------------------
 
+
 @app.get("/api/state", response_model=AppStateResponse)
 async def get_state():
     _require_components()
@@ -204,7 +202,9 @@ async def get_state():
         queue_in_flight=queue_stats["in_flight"],
         governor_mode=STATE.governor.mode.value,
         embedder_ready=embedder.is_ready(),
-        embedder_type="sentence_transformers" if not isinstance(embedder, HashingEmbedder) else "hashing",
+        embedder_type="sentence_transformers"
+        if not isinstance(embedder, HashingEmbedder)
+        else "hashing",
         stats=stats,
     )
 
@@ -213,12 +213,15 @@ async def get_state():
 # Locations
 # ---------------------------------------------------------------------------
 
+
 @app.get("/api/locations", response_model=list[LocationResponse])
 async def list_locations():
     _require_components()
     with connect(STATE.db_path) as con:
         locs = get_locations(con)
-    return [LocationResponse(id=l.id, path=l.path, enabled=l.enabled, added_at=l.added_at) for l in locs]
+    return [
+        LocationResponse(id=l.id, path=l.path, enabled=l.enabled, added_at=l.added_at) for l in locs
+    ]
 
 
 @app.post("/api/locations", response_model=LocationResponse, status_code=201)
@@ -260,10 +263,13 @@ async def update_location(loc_id: int, enabled: bool):
 
     with connect(STATE.db_path) as con:
         from glimpse.store import get_locations
+
         locs = get_locations(con)
         for l in locs:
             if l.id == loc_id:
-                return LocationResponse(id=l.id, path=l.path, enabled=l.enabled, added_at=l.added_at)
+                return LocationResponse(
+                    id=l.id, path=l.path, enabled=l.enabled, added_at=l.added_at
+                )
 
     raise HTTPException(404, "Location not found")
 
@@ -271,6 +277,7 @@ async def update_location(loc_id: int, enabled: bool):
 # ---------------------------------------------------------------------------
 # File Types
 # ---------------------------------------------------------------------------
+
 
 @app.get("/api/filetypes", response_model=list[FileTypeStatus])
 async def list_filetypes():
@@ -292,12 +299,15 @@ async def toggle_filetype(category: str, enabled: bool):
 
     STATE.watcher_manager.set_file_type_enabled(category, enabled)
 
-    return FileTypeStatus(category=category, enabled=enabled, supported=category in SUPPORTED_CATEGORIES_V01)
+    return FileTypeStatus(
+        category=category, enabled=enabled, supported=category in SUPPORTED_CATEGORIES_V01
+    )
 
 
 # ---------------------------------------------------------------------------
 # Performance
 # ---------------------------------------------------------------------------
+
 
 @app.get("/api/perf", response_model=PerfSettings)
 async def get_perf():
@@ -336,7 +346,9 @@ async def update_perf(update: PerfSettingsUpdate):
         if update.max_effort is not None:
             settings["max_effort"] = "1" if update.max_effort else "0"
             set_setting(con, "max_effort", settings["max_effort"])
-            STATE.governor.set_mode(GovernorMode.MAX_EFFORT if update.max_effort else GovernorMode.GOVERNED)
+            STATE.governor.set_mode(
+                GovernorMode.MAX_EFFORT if update.max_effort else GovernorMode.GOVERNED
+            )
             if STATE.queue:
                 STATE.queue.set_max_effort(update.max_effort)
 
@@ -366,6 +378,7 @@ async def toggle_max_effort(enabled: bool):
 # Open file (validated)
 # ---------------------------------------------------------------------------
 
+
 @app.post("/api/open", response_model=OpenFileResponse)
 async def open_file(req: OpenFileRequest):
     _require_components()
@@ -376,6 +389,7 @@ async def open_file(req: OpenFileRequest):
     for loc_id in _get_enabled_location_ids():
         with connect(STATE.db_path) as con:
             from glimpse.store import get_locations
+
             for loc in get_locations(con):
                 if loc.id == loc_id and loc.enabled:
                     try:
@@ -403,6 +417,7 @@ async def open_file(req: OpenFileRequest):
 # ---------------------------------------------------------------------------
 # Error handler
 # ---------------------------------------------------------------------------
+
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
