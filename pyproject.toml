@@ -1,0 +1,63 @@
+[project]
+name = "glimpse-search"
+version = "0.1.0"
+description = "Local, privacy-first semantic file search"
+readme = "README.md"
+requires-python = ">=3.11,<3.12"
+license = { text = "MIT" }
+authors = [{ name = "Glimpse" }]
+
+dependencies = [
+    # Web backend / UI shell
+    "fastapi>=0.115",
+    "uvicorn>=0.30",
+    "pywebview>=5.3",
+    # Tray + global hotkey
+    "pystray>=0.19",
+    "pillow>=10.4",
+    "keyboard>=0.13",
+    # File watching + resource governor
+    "watchdog>=4.0",
+    "psutil>=6.0",
+    "pynvml>=11.5",
+    # Storage + vectors
+    "sqlite-vec>=0.1.9",
+    # Extraction
+    "pypdf>=4.3",
+    # Embeddings (CPU)
+    "sentence-transformers>=3.2",
+    "torch>=2.4; sys_platform == 'win32'",
+    # App data paths + models
+    "platformdirs>=4.3",
+    "pydantic>=2.9",
+    "numpy>=1.26",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3",
+    "ruff>=0.6",
+]
+
+[project.scripts]
+glimpse = "glimpse.__main__:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/glimpse"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "C4"]
+ignore = ["E501"]  # line length handled by formatter
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
