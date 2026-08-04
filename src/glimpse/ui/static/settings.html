@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Glimpse Settings</title>
+    <link rel="stylesheet" href="settings.css">
+</head>
+<body>
+    <div class="settings-app">
+        <header class="settings-header">
+            <svg class="logo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"/>
+                <path d="M21 21l-4.35-4.35"/>
+            </svg>
+            <h1>Settings</h1>
+        </header>
+
+        <nav class="tabs" role="tablist" aria-label="Settings categories">
+            <button class="tab active" role="tab" aria-selected="true" data-tab="locations">Locations</button>
+            <button class="tab" role="tab" aria-selected="false" data-tab="filetypes">File Types</button>
+            <button class="tab" role="tab" aria-selected="false" data-tab="models" disabled>Models</button>
+            <button class="tab" role="tab" aria-selected="false" data-tab="performance" disabled>Performance</button>
+        </nav>
+
+        <main class="tab-panels">
+            <!-- Locations -->
+            <section class="tab-panel active" role="tabpanel" id="panel-locations" aria-labelledby="tab-locations">
+                <div class="panel-header">
+                    <h2>Indexed Locations</h2>
+                    <button class="btn btn-primary" id="addLocationBtn">Add Folder</button>
+                </div>
+                <ul class="location-list" id="locationList" role="list"></ul>
+                <p class="empty-hint hidden" id="locationsEmpty">No locations added. Click "Add Folder" to start indexing.</p>
+            </section>
+
+            <!-- File Types -->
+            <section class="tab-panel" role="tabpanel" id="panel-filetypes" aria-labelledby="tab-filetypes" hidden>
+                <div class="panel-header">
+                    <h2>File Types</h2>
+                    <p class="subtitle">Enable/disable categories. Disabled types are not indexed or watched.</p>
+                </div>
+                <div class="filetype-grid" id="filetypeGrid"></div>
+                <p class="notice" id="filetypeNotice">Categories marked "Not in v0.1" will be implemented in future releases.</p>
+            </section>
+
+            <!-- Models (stub) -->
+            <section class="tab-panel" role="tabpanel" id="panel-models" aria-labelledby="tab-models" hidden>
+                <div class="panel-header">
+                    <h2>Models</h2>
+                    <p class="subtitle">Manage local embedding models and remote LLM providers.</p>
+                </div>
+                <div class="stub-notice">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/>
+                        <path d="M12 6v6l4 2"/>
+                    </svg>
+                    <h3>Coming in v0.3</h3>
+                    <p>Local model downloader with progress bars, remote provider config (OpenAI, Anthropic, Ollama), and optional answer synthesis.</p>
+                </div>
+            </section>
+
+            <!-- Performance (stub + max effort) -->
+            <section class="tab-panel" role="tabpanel" id="panel-performance" aria-labelledby="tab-performance" hidden>
+                <div class="panel-header">
+                    <h2>Performance</h2>
+                    <p class="subtitle">Resource governor profile and Max Effort mode.</p>
+                </div>
+
+                <div class="setting-group">
+                    <label class="setting-label">
+                        <span>Hardware Profile</span>
+                        <select id="profileSelect" class="setting-select">
+                            <option value="minimal">Minimal (1 thread, conservative)</option>
+                            <option value="balanced" selected>Balanced (default)</option>
+                            <option value="performance">Performance (full resources)</option>
+                        </select>
+                    </label>
+                    <p class="setting-hint">Changing profile adjusts CPU thresholds, batch sizes, and idle gates.</p>
+                </div>
+
+                <div class="setting-group">
+                    <label class="setting-toggle">
+                        <input type="checkbox" id="maxEffortToggle">
+                        <span class="toggle-slider"></span>
+                        <span class="toggle-label">Max Effort Mode</span>
+                    </label>
+                    <p class="setting-hint">Suspends the resource governor. Uses full CPU/GPU, ignores idle state, drains queue fast. Auto-reverts when queue empties.</p>
+                </div>
+
+                <div class="stub-notice" style="margin-top: 24px;">
+                    <h3>Advanced governor settings in v0.3</h3>
+                    <p>Per-signal thresholds (CPU, GPU, battery, idle), custom profiles, and indexing schedule.</p>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="settings.js"></script>
+</body>
+</html>

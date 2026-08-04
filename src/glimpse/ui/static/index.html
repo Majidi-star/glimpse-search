@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Glimpse Search</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app">
+        <header class="search-header">
+            <svg class="logo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"/>
+                <path d="M21 21l-4.35-4.35"/>
+            </svg>
+            <input type="search" id="searchInput" class="search-input" placeholder="Search your files…" autocomplete="off" spellcheck="false">
+            <span id="statusBadge" class="status-badge hidden"></span>
+        </header>
+
+        <main class="results" id="resultsList" role="listbox" aria-label="Search results">
+            <div class="empty-state" id="emptyState">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <circle cx="11" cy="11" r="8"/>
+                    <path d="M21 21l-4.35-4.35"/>
+                </svg>
+                <p>Type to search your indexed files</p>
+            </div>
+            <div class="loading-state hidden" id="loadingState">
+                <div class="spinner"></div>
+                <p>Searching…</p>
+            </div>
+        </main>
+
+        <footer class="search-footer">
+            <kbd>↑↓</kbd> Navigate &nbsp;
+            <kbd>Enter</kbd> Open &nbsp;
+            <kbd>Esc</kbd> Close
+        </footer>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

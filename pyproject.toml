@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Local, privacy-first semantic file search"
 readme = "README.md"
 requires-python = ">=3.11,<3.12"
-license = { text = "MIT" }
+license = { text = "Apache-2.0" }
 authors = [{ name = "Glimpse" }]
 
 dependencies = [
@@ -24,9 +24,6 @@ dependencies = [
     "sqlite-vec>=0.1.9",
     # Extraction
     "pypdf>=4.3",
-    # Embeddings (CPU)
-    "sentence-transformers>=3.2",
-    "torch>=2.4; sys_platform == 'win32'",
     # App data paths + models
     "platformdirs>=4.3",
     "pydantic>=2.9",
@@ -34,6 +31,16 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# Real semantic embeddings (CPU). This pulls torch (~190MB wheel) +
+# sentence-transformers. Without this extra, Glimpse falls back to a
+# deterministic hashing-based embedder so the app runs fully offline out
+# of the box. Install this extra (with your VPN off) to enable true
+# semantic search:
+#   uv sync --extra models
+models = [
+    "sentence-transformers>=3.2",
+    "torch>=2.4; sys_platform == 'win32'",
+]
 dev = [
     "pytest>=8.3",
     "ruff>=0.6",
